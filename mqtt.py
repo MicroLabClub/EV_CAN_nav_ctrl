@@ -30,24 +30,36 @@ ignored_messages = [
 	"MCP2515 Driver started..."
 ]
 
+def parse_sensor_data(line):
+    try:
+        # Extract numerical values from the line
+        values = [float(val.split()[0]) for val in line.split('m') if val.strip()]
+        sensor_data = (
+            "{"
+            f"\"sensor_id\": 1234, "  # Static sensor ID, change as needed
+            f"\"us1\": {values[0] if len(values) > 0 else 0}, "
+            f"\"us2\": {values[1] if len(values) > 1 else 0}, "
+            f"\"us3\": {values[2] if len(values) > 2 else 0}, "
+            f"\"us4\": {values[3] if len(values) > 3 else 0}"
+            "}"
+        )
+        return sensor_data
+    except ValueError:
+        # Handle cases where conversion to float fails
+        return None
+
 try:
 	print("Press CTRL+C to exit...")
-	while True:
-		client.loop_start()
-		if ser.in_waiting > 0:
-			line = ser.readline().decode('utf-8').rstrip()
-			print(line)
-			if line not in ignored_messages:
-				data_to_publish = {
-					'us_data': line,  # Aici introducem datele din USB
-					'sensor_id': 1
-				}
+    while True:
+        client.loop_start()
+        if ser.in_waiting > 0:
+            line = ser.readline().decode('utf-8', errors='replace').rstrip()
 
-				json_data = json.dumps(data_to_publish)
-				client.publish('microlab/automotive/device/car/us/status', json_data)
-			else:
-				print("Received non-JSON data:", line)
-		client.loop_stop()
+            if line not in ignored_messages:
+                sensor_data_str = parse_sensor_data(line)
+                if sensor_data_str:
+                    client.publish('microlab/automotive/device/car/us/status', sensor_data_str)
+        client.loop_stop()
 except KeyboardInterrupt:
 	print("Exiting...")
 except Exception as e:
